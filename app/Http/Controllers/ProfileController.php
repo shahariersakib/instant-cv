@@ -17,64 +17,53 @@ class ProfileController extends Controller
 {
     public function index()
     {
-        // Get the currently authenticated user
-        $currentUser = Auth::user();
+        // Retrieve the currently authenticated user
+        $authenticatedUser = auth()->user();
 
-        // Check if the user is authenticated
-        if ($currentUser) {
-            $user_id = $currentUser->id;
+        // Check if the authenticated user exists
+        if ($authenticatedUser) {
+            // Retrieve all personal information records for the authenticated user
+            $personal_information = PersonalInformation::where('user_id', $authenticatedUser->id)->get();
 
-            // Retrieve the personal information of the authenticated user
-            $personalInformation = PersonalInformation::find($user_id);
-
-            if (!empty($personalInformation)) {
+            // Check if personal information exists
+            if ($personal_information->isNotEmpty()) {
+                // Initialize an array to store user data
                 $user_data = [];
 
-                $user_info['personal_info'] = $personalInformation->toArray();
+                // Loop through each personal information record
+                foreach ($personal_information as $personal_info) {
+                    // Retrieve additional related information for the user
+                    $contact_info = ContactInformation::where('user_id', $authenticatedUser->id)->first();
+                    $education_info = Education::where('user_id', $authenticatedUser->id)->first();
+                    $experience_info = Experience::where('user_id', $authenticatedUser->id)->first();
+                    $project_info = Projects::where('user_id', $authenticatedUser->id)->first();
+                    $skill_info = Skills::where('user_id', $authenticatedUser->id)->first();
+                    $language_info = Languages::where('user_id', $authenticatedUser->id)->first();
+                    $interest_info = Interests::where('user_id', $authenticatedUser->id)->first();
 
-                $contact_info = ContactInformation::find($user_id);
-                if (!empty($contact_info)) {
-                    $user_info['contact_info'] = $contact_info->toArray();
+                    // Organize the user data into an array
+                    $user_info = [
+                        'personal_info' => $personal_info->toArray(),
+                        'contact_info' => $contact_info ? $contact_info->toArray() : [],
+                        'education_info' => $education_info ? $education_info->toArray() : [],
+                        'experience_info' => $experience_info ? $experience_info->toArray() : [],
+                        'project_info' => $project_info ? $project_info->toArray() : [],
+                        'skill_info' => $skill_info ? $skill_info->toArray() : [],
+                        'language_info' => $language_info ? $language_info->toArray() : [],
+                        'interest_info' => $interest_info ? $interest_info->toArray() : [],
+                    ];
+
+                    // Push the user_info array into the user_data array
+                    $user_data[] = $user_info;
                 }
 
-                $education_info = Education::find($user_id);
-                if (!empty($education_info)) {
-                    $user_info['education_info'] = $education_info->toArray();
-                }
-
-                $experience_info = Experience::find($user_id);
-                if (!empty($experience_info)) {
-                    $user_info['experience_info'] = $experience_info->toArray();
-                }
-
-                $project_info = Projects::find($user_id);
-                if (!empty($project_info)) {
-                    $user_info['project_info'] = $project_info->toArray();
-                }
-
-                $skill_info = Skills::find($user_id);
-                if (!empty($skill_info)) {
-                    $user_info['skill_info'] = $skill_info->toArray();
-                }
-
-                $language_info = Languages::find($user_id);
-                if (!empty($language_info)) {
-                    $user_info['language_info'] = $language_info->toArray();
-                }
-
-                $interest_info = Interests::find($user_id);
-                if (!empty($interest_info)) {
-                    $user_info['interest_info'] = $interest_info->toArray();
-                }
-
-                $user_data[] = $user_info;
-
+                // Pass the user data to the 'profile.index' view
                 return view('profile.index', ['users_data' => $user_data]);
             }
         }
 
-        // User not authenticated or profile not found
-        return view('profile.index')->with('error', 'Your profile information is not available.');
+        // If the authenticated user or personal information does not exist, return an empty view or redirect as needed.
+        return view('profile.index', ['users_data' => []]);
     }
 
     public function view($id)
@@ -184,58 +173,62 @@ class ProfileController extends Controller
 
     public function store(Request $request)
     {
+        $user_id = Auth::id();
+
+        // Create and save personal information
         $personal_info = new PersonalInformation();
-        $personal_info->first_name        = $request->first_name;
-        $personal_info->last_name         = $request->last_name;
-        $personal_info->profile_title     = $request->profile_title;
-        $personal_info->about_me          = $request->about_me;
+        $personal_info->user_id = $user_id;
+        $personal_info->first_name = $request->first_name;
+        $personal_info->last_name = $request->last_name;
+        $personal_info->profile_title = $request->profile_title;
+        $personal_info->about_me = $request->about_me;
         if ($request->file('image_path')) {
-            $picture       = !empty($request->file('image_path')) ? $request->file('image_path')->getClientOriginalName() : '';
+            $picture = $request->file('image_path')->getClientOriginalName();
             $request->file('image_path')->move(public_path('assets/images/'), $picture);
+            $personal_info->image_path = $picture;
         }
-        $personal_info->image_path        = isset($picture) && !empty($picture) ? $picture : '';
         $personal_info->save();
 
+        // Retrieve the saved personal information
         $personal_information = PersonalInformation::latest()->first();
 
+        // Create and save contact information
         $contact_info = new ContactInformation();
-        $contact_info->user_id          = $personal_information->id;
-        $contact_info->email            = $request->email;
-        $contact_info->phone_number     = $request->phone_number;
-        $contact_info->website          = $request->website;
-        $contact_info->linkedin_link    = $request->linkedin_link;
-        $contact_info->github_link      = $request->github_link;
-        $contact_info->twitter          = $request->twitter;
+        $contact_info->user_id = $user_id;
+        $contact_info->email = $request->email;
+        $contact_info->phone_number = $request->phone_number;
+        $contact_info->website = $request->website;
+        $contact_info->linkedin_link = $request->linkedin_link;
+        $contact_info->github_link = $request->github_link;
+        $contact_info->twitter = $request->twitter;
         $contact_info->save();
 
-
+        // Create and save education information
         $edu_count = count($request->degree_title);
         if ($edu_count != 0) {
             for ($i = 0; $i < $edu_count; $i++) {
-
                 $education_info = new Education();
-                $education_info->user_id                = $personal_information->id;
-                $education_info->degree_title           = $request->degree_title[$i];
-                $education_info->institute              = $request->institute[$i];
-                $education_info->edu_start_date         = $request->edu_start_date[$i];
-                $education_info->edu_end_date           = $request->edu_end_date[$i];
-                $education_info->education_description  = $request->education_description[$i];
+                $education_info->user_id = $user_id;
+                $education_info->degree_title = $request->degree_title[$i];
+                $education_info->institute = $request->institute[$i];
+                $education_info->edu_start_date = $request->edu_start_date[$i];
+                $education_info->edu_end_date = $request->edu_end_date[$i];
+                $education_info->education_description = $request->education_description[$i];
                 $education_info->save();
             }
         }
 
-
+        // Create and save experience information
         $exp_count = count($request->job_title);
         if ($exp_count != 0) {
             for ($i = 0; $i < $exp_count; $i++) {
-
                 $experience_info = new Experience();
-                $experience_info->user_id          = $personal_information->id;
-                $experience_info->job_title        = $request->job_title[$i];
-                $experience_info->organization     = $request->organization[$i];
-                $experience_info->job_start_date   = $request->job_start_date[$i];
-                $experience_info->job_end_date     = $request->job_end_date[$i];
-                $experience_info->job_description  = $request->job_description[$i];
+                $experience_info->user_id = $user_id;
+                $experience_info->job_title = $request->job_title[$i];
+                $experience_info->organization = $request->organization[$i];
+                $experience_info->job_start_date = $request->job_start_date[$i];
+                $experience_info->job_end_date = $request->job_end_date[$i];
+                $experience_info->job_description = $request->job_description[$i];
                 $experience_info->save();
             }
         }
@@ -243,46 +236,45 @@ class ProfileController extends Controller
         $project_count = count($request->project_title);
         if ($project_count != 0) {
             for ($i = 0; $i < $project_count; $i++) {
-
                 $project_info = new Projects();
-                $project_info->user_id              = $personal_information->id;
-                $project_info->project_title        = $request->project_title[$i];
-                $project_info->project_description  = $request->project_description[$i];
+                $project_info->user_id = $user_id;
+                $project_info->project_title = $request->project_title[$i];
+                $project_info->project_description = $request->project_description[$i];
                 $project_info->save();
             }
         }
 
+        // Create and save skill information
         $skill_count = count($request->skill_name);
         if ($skill_count != 0) {
             for ($i = 0; $i < $skill_count; $i++) {
-
                 $skill_info = new Skills();
-                $skill_info->user_id           = $personal_information->id;
-                $skill_info->skill_name        = $request->skill_name[$i];
-                $skill_info->skill_percentage  = $request->skill_percentage[$i];
+                $skill_info->user_id = $user_id;
+                $skill_info->skill_name = $request->skill_name[$i];
+                $skill_info->skill_percentage = $request->skill_percentage[$i];
                 $skill_info->save();
             }
         }
 
+        // Create and save language information
         $lang_count = count($request->language);
         if ($lang_count != 0) {
             for ($i = 0; $i < $lang_count; $i++) {
-
                 $language_info = new Languages();
-                $language_info->user_id         = $personal_information->id;
-                $language_info->language        = $request->language[$i];
-                $language_info->language_level  = $request->language_level[$i];
+                $language_info->user_id = $user_id;
+                $language_info->language = $request->language[$i];
+                $language_info->language_level = $request->language_level[$i];
                 $language_info->save();
             }
         }
 
+        // Create and save interest information
         $interest_count = count($request->interest);
         if ($interest_count != 0) {
             for ($i = 0; $i < $interest_count; $i++) {
-
                 $interest_info = new Interests();
-                $interest_info->user_id         = $personal_information->id;
-                $interest_info->interest        = $request->interest[$i];
+                $interest_info->user_id = $user_id;
+                $interest_info->interest = $request->interest[$i];
                 $interest_info->save();
             }
         }
@@ -367,7 +359,8 @@ class ProfileController extends Controller
                         $edu_info->edu_end_date           = $request->edu_end_date[$i];
                         $edu_info->education_description  = $request->education_description[$i];
                         $edu_info->save();
-                    } elseif ($edu_count_live > 0 && $edu_count_local <= 0
+                    } elseif (
+                        $edu_count_live > 0 && $edu_count_local <= 0
                     ) {
 
                         Education::find($education_info[$i]['id'])->delete();
@@ -437,7 +430,8 @@ class ProfileController extends Controller
             if ($project_count != 0) {
                 for ($i = 0; $i < $project_count; $i++) {
 
-                    if ($project_count_local > 0 && $project_count_live <= 0
+                    if (
+                        $project_count_local > 0 && $project_count_live <= 0
                     ) {
 
                         $pro_info = new Projects();

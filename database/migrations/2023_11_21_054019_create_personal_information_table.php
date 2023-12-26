@@ -15,12 +15,15 @@ class CreatePersonalInformationTable extends Migration
     {
         Schema::create('personal_information', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('user_id');
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('image_path')->nullable();
             $table->string('profile_title')->nullable();
             $table->longText('about_me')->nullable();
             $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users');
         });
     }
 
