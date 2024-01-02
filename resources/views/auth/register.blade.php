@@ -64,6 +64,7 @@
                                             id="password-confirm" name="password_confirmation" placeholder="Repeat Password" required>
                                     </div>
                                 </div>
+                                <input type="hidden" name="role" value="user">
                                 <!-- Register Button -->
                                 <button type="submit" class="btn btn-primary btn-user btn-block">
                                     Register Account
